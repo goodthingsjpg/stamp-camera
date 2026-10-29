@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>郵票相機</title>
+<meta name="theme-color" content="#EBEBDF">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@400;700&family=DM+Sans:wght@400&family=Poppins:wght@600&display=swap" rel="stylesheet">
+<style>
+  /* Magazine 配色（DESIGN.md 02-D） */
+  :root {
+    --bg: #EBEBDF;
+    --text: #323232;
+    --blue: #A9C2E0;
+    --orange: #E9631A;       /* 只當裝飾，不當文字、不放白字 */
+    --paper: #fffdf7;        /* 郵票紙色 */
+    --line: rgba(50, 50, 50, 0.16);
+    --text-2: #5a5a55;
+    --focus: #4B63C3;
+    --error: #B42318;
+    --error-bg: #FFF1F0;
+    --error-border: #F4B4AD;
+    --font: "DM Sans", "Chiron GoRound TC", "Noto Sans TC", sans-serif;
+    --font-title: "Poppins", "Chiron GoRound TC", "Noto Sans TC", sans-serif;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow: 0 2px 8px rgba(50, 50, 50, 0.08);
+    --tabbar: 64px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app { max-width: 480px; margin: 0 auto; padding: 16px 16px calc(var(--tabbar) + 32px + env(safe-area-inset-bottom)); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 16px; }
+  h1 { font-family: var(--font-title); font-weight: 700; font-size: 24px; line-height: 1.3; margin: 0; display: flex; align-items: center; gap: 8px; }
+  h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); }
+  h2 { font-weight: 700; font-size: 18px; line-height: 1.4; margin: 0 0 12px; }
+  .sub { font-size: 14px; color: var(--text-2); margin: 0; }
+  svg.i { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* 按鈕 */
+  button { font: inherit; color: inherit; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: var(--radius-md); padding: 12px 24px; font-weight: 700; font-size: 16px;
+    border: 1.5px solid var(--text); background: transparent; cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: var(--text); color: var(--bg); }
+  .btn.primary:hover { background: #1f1f1f; }
+  .btn.secondary:hover { background: rgba(50, 50, 50, 0.06); }
+  .btn.ghost { border-color: transparent; padding: 12px 16px; }
+  .btn.ghost:hover { background: rgba(50, 50, 50, 0.06); }
+  .btn.danger { color: var(--error); background: var(--error-bg); border: 1px solid var(--error-border); }
+  .btn.danger:hover { background: var(--error); color: #fff; border-color: var(--error); }
+  .btn.block { width: 100%; }
+  .btn.icon { padding: 8px; border-color: transparent; }
+  .btn.icon:hover { background: rgba(50, 50, 50, 0.06); }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+  /* 起始畫面 */
+  .start {
+    background: var(--paper); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    padding: 32px 24px; text-align: center;
+  }
+  .start .demo { width: 132px; margin: 0 auto 16px; display: block; filter: drop-shadow(0 2px 6px rgba(50,50,50,.18)); }
+  .start p { margin: 0 0 24px; color: var(--text-2); font-size: 14px; }
+  .start .row { display: grid; gap: 12px; }
+
+  /* 編輯畫面 */
+  .target {
+    display: flex; align-items: center; gap: 8px; background: var(--paper); border-radius: var(--radius-sm);
+    padding: 8px 12px; font-size: 14px; margin-bottom: 12px;
+  }
+  .target::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex: none; }
+  .stage {
+    background: var(--blue); border-radius: var(--radius-lg);
+    padding: 24px; display: flex; justify-content: center;
+  }
+  #preview {
+    width: 100%; max-width: 300px; height: auto; display: block;
+    touch-action: none; cursor: grab;
+    filter: drop-shadow(0 3px 8px rgba(50,50,50,.25));
+  }
+  #preview.dragging { cursor: grabbing; }
+  .hint { font-size: 14px; color: var(--text-2); text-align: center; margin: 8px 0 0; }
+  .zoom { display: flex; align-items: center; gap: 12px; margin: 16px 0 0; font-size: 14px; }
+  .zoom input { flex: 1; accent-color: var(--text); }
+
+  .field { margin-top: 24px; }
+  .label { font-size: 14px; font-weight: 700; margin: 0 0 8px; display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: var(--paper); border-radius: 999px;
+    padding: 8px 16px; font-size: 14px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--blue); border-color: var(--text); font-weight: 700; }
+  .chip canvas { width: 18px; height: auto; display: block; }
+  input[type="date"], input[type="text"], textarea {
+    font: inherit; font-size: 16px; color: var(--text); background: var(--paper);
+    border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; width: 100%;
+    min-height: 44px;
+  }
+  textarea { resize: vertical; min-height: 72px; line-height: 1.6; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .actions .wide { grid-column: 1 / -1; }
+
+  /* 收藏 */
+  .shelf { margin-top: 48px; }
+  .shelf-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .grid button { background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--radius-sm); }
+  .grid canvas { width: 100%; height: auto; display: block; filter: drop-shadow(0 1px 3px rgba(50,50,50,.22)); }
+  .grid .d { font-size: 12px; color: var(--text-2); text-align: center; margin-top: 4px; }
+  .grid .add {
+    aspect-ratio: 3 / 4; border: 1.5px dashed var(--text-2); background: transparent; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; color: var(--text);
+  }
+  .grid .add svg.i { width: 28px; height: 28px; }
+  .empty { font-size: 14px; color: var(--text-2); background: var(--paper); border-radius: var(--radius-lg); padding: 16px; text-align: center; }
+  .credit { margin-top: 48px; text-align: center; font-size: 14px; color: var(--text-2); }
+
+  /* 月曆 */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-head h2 { margin: 0; font-family: var(--font-title); }
+  .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .cal-week div { font-size: 12px; text-align: center; color: var(--text-2); padding-bottom: 4px; }
+  .cell {
+    position: relative; aspect-ratio: 5 / 6; background: var(--paper); border: 1px solid transparent;
+    border-radius: var(--radius-sm); padding: 0; cursor: pointer; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cell:hover { border-color: var(--line); }
+  .cell .n { position: absolute; top: 2px; left: 5px; font-size: 12px; line-height: 1.4; color: var(--text-2); }
+  .cell.has .n { color: var(--text); font-weight: 700; }
+  .cell.today { border: 1.5px solid var(--text); }
+  .cell canvas { width: 62%; height: auto; margin-top: 10px; filter: drop-shadow(0 1px 2px rgba(50,50,50,.25)); }
+  .cell .more { position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: var(--text-2); }
+  .cell.blank { background: transparent; cursor: default; }
+  .cal-sum { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .cal-sum .count { background: var(--blue); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 14px; }
+
+  .backup { margin-top: 48px; background: var(--paper); border-radius: var(--radius-lg); padding: 16px; }
+  .backup p { font-size: 14px; color: var(--text-2); margin: 0 0 12px; }
+  .backup .actions { margin-top: 0; }
+
+  /* 當日頁 */
+  .day-head { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; }
+  .day-head h2 { margin: 0; }
+  .saved { font-size: 12px; color: var(--text-2); margin-left: auto; }
+
+  /* 切換列 */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--paper); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; height: var(--tabbar); }
+  .tabbar button {
+    background: none; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; font-size: 12px; color: var(--text-2); position: relative;
+  }
+  .tabbar button[aria-current="page"] { color: var(--text); font-weight: 700; }
+  .tabbar button[aria-current="page"]::after {
+    content: ""; position: absolute; top: 0; width: 32px; height: 3px; border-radius: 0 0 3px 3px; background: var(--orange);
+  }
+
+  /* 對話框 */
+  dialog {
+    border: 0; border-radius: var(--radius-lg); background: var(--bg); color: var(--text);
+    padding: 24px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+  dialog::backdrop { background: rgba(30, 30, 28, .45); }
+  dialog .big { display: block; width: 100%; max-width: 280px; height: auto; margin: 0 auto 16px; filter: drop-shadow(0 3px 8px rgba(50,50,50,.25)); }
+  dialog .meta { text-align: center; font-size: 14px; color: var(--text-2); margin: 0 0 16px; }
+  dialog .close { position: absolute; top: 8px; right: 8px; padding: 8px; }
+  dialog .stack { display: grid; gap: 12px; }
+  .fallback img { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); margin-bottom: 12px; }
+  .pick-grid button[aria-pressed="true"] { outline: 3px solid var(--text); outline-offset: 2px; }
+  .pick-grid button[aria-pressed="false"] canvas { opacity: .45; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--tabbar) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg); padding: 12px 20px; border-radius: 999px; font-size: 14px; z-index: 20;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<!-- 圖示：Lucide outline 2px -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+</svg>
+
+<div class="app">
+  <header>
+    <h1><span class="dot" aria-hidden="true"></span>郵票相機</h1>
+  </header>
+
+  <!-- ===== 做郵票 ===== -->
+  <main id="viewMake">
+    <section id="start" class="start">
+      <canvas id="demo" class="demo" aria-hidden="true"></canvas>
+      <h2>把今天做成一張郵票</h2>
+      <p>拍照或從相簿選一張，照片只存在你的手機裡。</p>
+      <div class="row">
+        <button class="btn primary block" data-pick="camera"><svg class="i"><use href="#i-camera"/></svg>拍一張</button>
+        <button class="btn secondary block" data-pick="album"><svg class="i"><use href="#i-image"/></svg>選照片</button>
+      </div>
+    </section>
+
+    <section id="editor" hidden>
+      <div class="target" id="target" hidden></div>
+      <div class="stage">
+        <canvas id="preview" role="img" aria-label="郵票預覽，可以拖曳照片調整位置"></canvas>
+      </div>
+      <p class="hint">拖曳照片調整位置，雙指或拉桿縮放</p>
+      <div class="zoom">
+        <label for="zoom">縮放</label>
+        <input type="range" id="zoom" min="1" max="4" step="0.01" value="1">
+      </div>
+
+      <div class="field">
+        <span class="label" id="lblStyle">邊框</span>
+        <div class="chips" role="group" aria-labelledby="lblStyle" id="styleChips"></div>
+      </div>
+      <div class="field">
+        <span class="label" id="lblRatio">比例</span>
+        <div class="chips" role="group" aria-labelledby="lblRatio" id="ratioChips"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="date">日期</label>
+        <input type="date" id="date">
+      </div>
+
+      <div class="actions">
+        <button class="btn primary wide" id="btnSave"><svg class="i"><use href="#i-check"/></svg>存進收藏</button>
+        <button class="btn secondary" id="btnDownload"><svg class="i"><use href="#i-download"/></svg>下載 PNG</button>
+        <button class="btn ghost" id="btnReset"><svg class="i"><use href="#i-refresh"/></svg>換一張</button>
+      </div>
+    </section>
+
+    <section class="shelf" aria-labelledby="shelfTitle">
+      <div class="shelf-head">
+        <h2 id="shelfTitle">最近的郵票</h2>
+        <p class="sub" id="shelfCount"></p>
+      </div>
+      <div class="grid" id="grid"></div>
+      <p class="empty" id="shelfEmpty" hidden>還沒有郵票，做好的郵票會出現在這裡。</p>
+    </section>
+  </main>
+
+  <!-- ===== 月曆 ===== -->
+  <main id="viewCal" hidden>
+    <div class="cal-head">
+      <button class="btn icon" id="calPrev" aria-label="上個月"><svg class="i"><use href="#i-left"/></svg></button>
+      <h2 id="calTitle"></h2>
+      <button class="btn icon" id="calNext" aria-label="下個月"><svg class="i"><use href="#i-right"/></svg></button>
+    </div>
+    <div class="cal-week" aria-hidden="true"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-sum">
+      <span class="count" id="calCount"></span>
+      <button class="btn secondary" id="btnMonthImg"><svg class="i"><use href="#i-download"/></svg>下載月曆圖</button>
+    </div>
+
+    <section class="backup" aria-labelledby="backupTitle">
+      <h2 id="backupTitle">備份與還原</h2>
+      <p id="backupInfo">郵票只存在這個瀏覽器裡。換手機或清除瀏覽器資料前，先下載備份檔。</p>
+      <div class="actions">
+        <button class="btn secondary" id="btnBackup"><svg class="i"><use href="#i-download"/></svg>下載備份</button>
+        <button class="btn secondary" id="btnRestore"><svg class="i"><use href="#i-upload"/></svg>匯入備份</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== 當日頁 ===== -->
+  <main id="viewDay" hidden>
+    <div class="day-head">
+      <button class="btn icon" id="dayBack" aria-label="回到月曆"><svg class="i"><use href="#i-left"/></svg></button>
+      <h2 id="dayTitle"></h2>
+      <span class="saved" id="daySaved" aria-live="polite"></span>
+    </div>
+    <div class="grid" id="dayGrid"></div>
+    <p class="empty" id="dayEmpty" hidden>這天還沒有郵票，按「＋」加一張。</p>
+
+    <div class="field">
+      <label class="label" for="dayNote">一句日記</label>
+      <textarea id="dayNote" maxlength="60" placeholder="今天去了大稻埕，喝到很好喝的紅茶。"></textarea>
+    </div>
+    <div class="field">
+      <label class="label" for="dayPlace">地點</label>
+      <input type="text" id="dayPlace" maxlength="20" placeholder="台北・大稻埕">
+    </div>
+    <div class="actions">
+      <button class="btn primary wide" id="btnDayImg"><svg class="i"><use href="#i-download"/></svg>下載日記圖</button>
+    </div>
+  </main>
+
+  <footer class="credit">Made with ❤️ by 伯爵紅茶</footer>
+</div>
+
+<nav class="tabbar" aria-label="主要頁面">
+  <div class="in">
+    <button id="tabMake" aria-current="page"><svg class="i"><use href="#i-camera"/></svg>做郵票</button>
+    <button id="tabCal"><svg class="i"><use href="#i-calendar"/></svg>月曆</button>
+  </div>
+</nav>
+
+<input type="file" id="inCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="inPick" accept="image/*" hidden>
+<input type="file" id="inBackup" accept="application/json,.json" hidden>
+
+<!-- 單張郵票 -->
+<dialog id="detail" aria-labelledby="detailTitle">
+  <button class="btn ghost close" id="detailClose" aria-label="關閉"><svg class="i"><use href="#i-x"/></svg></button>
+  <h2 id="detailTitle" class="sr-only">郵票</h2>
+  <canvas id="detailCanvas" class="big"></canvas>
+  <p class="meta" id="detailMeta"></p>
+  <div class="actions">
+    <button class="btn secondary" id="detailDownload"><svg class="i"><use href="#i-download"/></svg>下載</button>
+    <button class="btn danger" id="detailDelete"><svg class="i"><use href="#i-trash"/></svg>刪除</button>
+  </div>
+</dialog>
+
+<!-- 當日頁的「＋」 -->
+<dialog id="addDialog" aria-labelledby="addTitle">
+  <button class="btn ghost close" data-close aria-label="關閉"><svg class="i"><use href="#i-x"/></svg></button>
+  <h2 id="addTitle"></h2>
+  <div class="stack">
+    <button class="btn primary block" data-pick="camera"><svg class="i"><use href="#i-camera"/></svg>拍一張</button>
+    <button class="btn secondary block" data-pick="album"><svg class="i"><use href="#i-image"/></svg>選照片</button>
+  </div>
+</dialog>
+
+<!-- 超過 4 張時挑郵票 -->
+<dialog id="pickDialog" aria-labelledby="pickTitle">
+  <button class="btn ghost close" data-close aria-label="關閉"><svg class="i"><use href="#i-x"/></svg></button>
+  <h2 id="pickTitle">挑最多 4 張放進日記圖</h2>
+  <p class="meta" id="pickCount"></p>
+  <div class="grid pick-grid" id="pickGrid"></div>
+  <div class="actions">
+    <button class="btn primary wide" id="pickGo"><svg class="i"><use href="#i-download"/></svg>下載日記圖</button>
+  </div>
+</dialog>
+
+<!-- 匯入備份 -->
+<dialog id="restoreDialog" aria-labelledby="restoreTitle">
+  <h2 id="restoreTitle">匯入備份</h2>
+  <p class="meta" id="restoreInfo" style="text-align:left"></p>
+  <div class="stack">
+    <button class="btn primary block" id="restoreMerge">合併：保留現有的，加入備份裡的</button>
+    <button class="btn danger block" id="restoreReplace"><svg class="i"><use href="#i-trash"/></svg>覆蓋：清空現有的，換成備份</button>
+    <button class="btn ghost block" data-close>取消</button>
+  </div>
+</dialog>
+
+<!-- 下載失敗時：長按圖片儲存 -->
+<dialog id="fallback" class="fallback" aria-labelledby="fallbackTitle">
+  <h2 id="fallbackTitle">長按圖片儲存</h2>
+  <img id="fallbackImg" alt="要儲存的圖片">
+  <button class="btn secondary block" data-close>關閉</button>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ---------- 設定 ----------
+const STYLES = [
+  { id: 'classic', name: '經典齒孔' },
+  { id: 'big', name: '大圓齒孔' },
+  { id: 'flat', name: '平邊' },
+];
+const RATIOS = [
+  { id: '3:4', name: '直式 3:4', w: 3, h: 4 },
+  { id: '1:1', name: '正方 1:1', w: 1, h: 1 },
+];
+const EXPORT_W = 1200;          // 下載與儲存的寬度（像素）
+const MAX_SOURCE = 2400;        // 原始照片先縮到這個大小以內，省記憶體
+const PAPER = '#fffdf7';
+const C = { bg: '#EBEBDF', text: '#323232', text2: '#5a5a55', blue: '#A9C2E0', orange: '#E9631A' };
+const FONT_ZH = '"Chiron GoRound TC", "Noto Sans TC", sans-serif';
+const FONT_EN = '"Poppins", "Chiron GoRound TC", sans-serif';
+const WEEK = '日一二三四五六';
+
+// ---------- 郵票繪製 ----------
+// 所有樣式共用同一個白邊寬度，存好的郵票之後也能換邊框
+function geom(ratioId, W) {
+  const r = RATIOS.find(x => x.id === ratioId);
+  const H = Math.round(W * r.h / r.w);
+  const m = W * 0.085;
+  return { W, H, m, pw: W - 2 * m, ph: H - 2 * m };
+}
+
+// 在畫布上畫郵票；drawPhoto(ctx, x, y, w, h) 負責把照片畫進照片區
+function renderStamp(canvas, { style, ratio, W, drawPhoto }) {
+  const g = geom(ratio, W);
+  canvas.width = Math.round(g.W);
+  canvas.height = Math.round(g.H);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, g.W, g.H);
+
+  ctx.fillStyle = PAPER;
+  if (style === 'flat') {
+    roundRect(ctx, 0, 0, g.W, g.H, g.W * 0.015);
+    ctx.fill();
+  } else {
+    ctx.fillRect(0, 0, g.W, g.H);
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(g.m, g.m, g.pw, g.ph);
+  ctx.clip();
+  drawPhoto(ctx, g.m, g.m, g.pw, g.ph);
+  ctx.restore();
+
+  if (style !== 'flat') punchHoles(ctx, g, style);
+  return g;
+}
+
+// 沿四邊挖出半圓齒孔（背景變透明）
+function punchHoles(ctx, g, style) {
+  const r = style === 'big' ? g.W * 0.034 : g.W * 0.018;
+  const pitch = style === 'big' ? r * 3.2 : r * 3.0;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  const nx = Math.max(2, Math.round(g.W / pitch));
+  const ny = Math.max(2, Math.round(g.H / pitch));
+  for (let i = 0; i <= nx; i++) {
+    const x = i * g.W / nx;
+    circle(ctx, x, 0, r);
+    circle(ctx, x, g.H, r);
+  }
+  for (let j = 1; j < ny; j++) {
+    const y = j * g.H / ny;
+    circle(ctx, 0, y, r);
+    circle(ctx, g.W, y, r);
+  }
+  ctx.fill();
+  ctx.restore();
+}
+function circle(ctx, x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// 照片整張填滿照片區（已裁好的照片用）
+function fillPhoto(img) {
+  return (ctx, x, y, w, h) => {
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, x, y, w, h);
+  };
+}
+
+// ---------- 資料庫（瀏覽器內建的 IndexedDB） ----------
+const DB_NAME = 'stamp-camera';
+let dbPromise;
+function db() {
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        const stamps = d.createObjectStore('stamps', { keyPath: 'id' });
+        stamps.createIndex('date', 'date');
+        d.createObjectStore('days', { keyPath: 'date' });  // 每日日記與地點
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return dbPromise;
+}
+async function tx(store, mode, fn) {
+  const d = await db();
+  return new Promise((resolve, reject) => {
+    const t = d.transaction(store, mode);
+    const result = fn(t.objectStore(store));
+    t.oncomplete = () => resolve(result && 'result' in result ? result.result : result);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  });
+}
+const putStamp = s => tx('stamps', 'readwrite', st => st.put(s));
+const deleteStamp = id => tx('stamps', 'readwrite', st => st.delete(id));
+const allStamps = () => tx('stamps', 'readonly', st => st.getAll());
+const getDay = date => tx('days', 'readonly', st => st.get(date));
+const putDay = d => tx('days', 'readwrite', st => st.put(d));
+const allDays = () => tx('days', 'readonly', st => st.getAll());
+const clearAll = () => Promise.all([
+  tx('stamps', 'readwrite', st => st.clear()),
+  tx('days', 'readwrite', st => st.clear()),
+]);
+async function stampsOn(date) {
+  return (await allStamps()).filter(s => s.date === date).sort((a, b) => a.createdAt - b.createdAt);
+}
+
+// ---------- 小工具 ----------
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function todayStr() { return dateStr(new Date()); }
+function parseDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function prettyDate(s) {
+  const d = parseDate(s);
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}（${WEEK[d.getDay()]}）`;
+}
+function shortDate(s) { const d = parseDate(s); return `${d.getMonth() + 1}/${d.getDate()}`; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+let toastTimer;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function toBlob(canvas, type = 'image/png', q) {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), type, q));
+}
+async function blobToImage(blob) {
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.src = url;
+  try { await img.decode(); } finally { URL.revokeObjectURL(url); }
+  return img;
+}
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+async function dataURLToBlob(url) { return (await fetch(url)).blob(); }
+function mb(bytes) { return (bytes / 1024 / 1024).toFixed(1); }
+
+// 所有對話框：點 data-close 或點背景就關掉
+document.querySelectorAll('dialog').forEach(d => {
+  d.addEventListener('click', e => {
+    if (e.target === d || e.target.closest('[data-close]')) d.close();
+  });
+});
+
+// 下載：手機優先跳出分享選單（可直接存到照片），失敗就顯示「長按儲存」
+async function saveFile(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  const isTouch = matchMedia('(pointer: coarse)').matches;
+  const isImage = blob.type.startsWith('image/');
+  if (isTouch && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      if (isImage) { showFallback(blob); return; }
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('已下載');
+}
+function showFallback(blob) {
+  const img = $('fallbackImg');
+  if (img.src) URL.revokeObjectURL(img.src);
+  img.src = URL.createObjectURL(blob);
+  $('fallback').showModal();
+}
+
+// ---------- 頁面切換 ----------
+let view = 'make';
+function show(name) {
+  if (view === 'day' && name !== 'day') flushDay();
+  view = name;
+  $('viewMake').hidden = name !== 'make';
+  $('viewCal').hidden = name !== 'cal';
+  $('viewDay').hidden = name !== 'day';
+  const calTab = name === 'cal' || name === 'day';
+  $('tabMake').toggleAttribute('aria-current', !calTab);
+  $('tabCal').toggleAttribute('aria-current', calTab);
+  if (!calTab) $('tabMake').setAttribute('aria-current', 'page'); else $('tabCal').setAttribute('aria-current', 'page');
+  window.scrollTo(0, 0);
+}
+$('tabMake').onclick = () => {
+  if (view === 'make') return;
+  if (!state.source) pendingDate = null;
+  show('make');
+  updateTarget();
+};
+$('tabCal').onclick = () => { show('cal'); renderCalendar(); updateBackupInfo(); };
+
+// ---------- 編輯器狀態 ----------
+const state = {
+  source: null,       // 縮小後的原始照片（canvas）
+  style: 'classic',
+  ratio: '3:4',
+  zoom: 1,
+  cx: 0, cy: 0,       // 取景中心（原始照片座標）
+};
+let pendingDate = null; // 從當日頁按「＋」時，郵票要存到的日期
+
+// 依目前縮放與中心，算出要從原始照片切哪一塊
+function cropRect(ratioId = state.ratio) {
+  const g = geom(ratioId, 1000);
+  const iw = state.source.width, ih = state.source.height;
+  const cover = Math.max(g.pw / iw, g.ph / ih);
+  const sw = g.pw / (cover * state.zoom);
+  const sh = g.ph / (cover * state.zoom);
+  return { sw, sh, iw, ih };
+}
+function clampCenter() {
+  const { sw, sh, iw, ih } = cropRect();
+  state.cx = Math.min(Math.max(state.cx, sw / 2), iw - sw / 2);
+  state.cy = Math.min(Math.max(state.cy, sh / 2), ih - sh / 2);
+}
+function drawCrop(ctx, x, y, w, h) {
+  const { sw, sh } = cropRect();
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(state.source, state.cx - sw / 2, state.cy - sh / 2, sw, sh, x, y, w, h);
+}
+
+const preview = $('preview');
+function drawPreview() {
+  if (!state.source || $('editor').hidden) return;
+  const cssW = preview.clientWidth || 300;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  renderStamp(preview, { style: state.style, ratio: state.ratio, W: cssW * dpr, drawPhoto: drawCrop });
+}
+function updateTarget() {
+  $('target').hidden = !pendingDate;
+  if (pendingDate) $('target').textContent = `這張會存到 ${prettyDate(pendingDate)}`;
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('這個檔案不是圖片，換一張試試'); return; }
+  let img;
+  try {
+    img = await blobToImage(file);
+  } catch {
+    toast('這張照片打不開，換一張試試');
+    return;
+  }
+  const s = Math.min(1, MAX_SOURCE / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * s);
+  c.height = Math.round(img.naturalHeight * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  state.source = c;
+  state.zoom = 1;
+  state.cx = c.width / 2;
+  state.cy = c.height / 2;
+  $('zoom').value = 1;
+  $('date').value = pendingDate || todayStr();
+  $('addDialog').close();
+  $('start').hidden = true;
+  $('editor').hidden = false;
+  show('make');
+  updateTarget();
+  requestAnimationFrame(drawPreview);
+}
+
+function resetEditor() {
+  state.source = null;
+  $('editor').hidden = true;
+  $('start').hidden = false;
+  $('date').value = todayStr();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---------- 拖曳與縮放 ----------
+const pointers = new Map();
+let pinchStart = null;
+function setZoom(z) {
+  state.zoom = Math.min(4, Math.max(1, z));
+  $('zoom').value = state.zoom;
+  clampCenter();
+  drawPreview();
+}
+preview.addEventListener('pointerdown', e => {
+  if (!state.source) return;
+  preview.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  preview.classList.add('dragging');
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: state.zoom };
+  }
+});
+preview.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId);
+  const cur = { x: e.clientX, y: e.clientY };
+  pointers.set(e.pointerId, cur);
+  if (pointers.size === 2 && pinchStart) {
+    const [a, b] = [...pointers.values()];
+    setZoom(pinchStart.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinchStart.dist);
+    return;
+  }
+  if (pointers.size === 1) {
+    // 螢幕上移動多少，換算成原始照片上移動多少
+    const g = geom(state.ratio, preview.clientWidth);
+    const { sw } = cropRect();
+    const k = sw / g.pw;
+    state.cx -= (cur.x - prev.x) * k;
+    state.cy -= (cur.y - prev.y) * k;
+    clampCenter();
+    drawPreview();
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStart = null;
+  if (pointers.size === 0) preview.classList.remove('dragging');
+}
+preview.addEventListener('pointerup', endPointer);
+preview.addEventListener('pointercancel', endPointer);
+preview.addEventListener('wheel', e => {
+  if (!state.source) return;
+  e.preventDefault();
+  setZoom(state.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+}, { passive: false });
+$('zoom').addEventListener('input', e => setZoom(parseFloat(e.target.value)));
+
+// ---------- 樣式與比例按鈕 ----------
+function chipIcon(style, ratio) {
+  const c = document.createElement('canvas');
+  renderStamp(c, { style, ratio, W: 54, drawPhoto: (ctx, x, y, w, h) => { ctx.fillStyle = '#323232'; ctx.fillRect(x, y, w, h); } });
+  c.setAttribute('aria-hidden', 'true');
+  return c;
+}
+function buildChips() {
+  const sc = $('styleChips'), rc = $('ratioChips');
+  sc.innerHTML = ''; rc.innerHTML = '';
+  STYLES.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.setAttribute('aria-pressed', s.id === state.style);
+    b.append(chipIcon(s.id, '3:4'), s.name);
+    b.onclick = () => { state.style = s.id; buildChips(); drawPreview(); };
+    sc.append(b);
+  });
+  RATIOS.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.setAttribute('aria-pressed', r.id === state.ratio);
+    b.append(chipIcon('flat', r.id), r.name);
+    b.onclick = () => { state.ratio = r.id; clampCenter(); buildChips(); drawPreview(); };
+    rc.append(b);
+  });
+}
+
+// ---------- 儲存與下載 ----------
+// 存檔時只存「裁好的照片」＋邊框設定，顯示時再畫上郵票邊
+async function cropToBlob() {
+  const g = geom(state.ratio, EXPORT_W);
+  const c = document.createElement('canvas');
+  c.width = Math.round(g.pw);
+  c.height = Math.round(g.ph);
+  drawCrop(c.getContext('2d'), 0, 0, c.width, c.height);
+  return toBlob(c, 'image/jpeg', 0.9);
+}
+function stampCanvas(img, s, W) {
+  const c = document.createElement('canvas');
+  renderStamp(c, { style: s.style, ratio: s.ratio, W, drawPhoto: fillPhoto(img) });
+  return c;
+}
+
+$('btnSave').onclick = async () => {
+  const btn = $('btnSave');
+  btn.disabled = true;
+  try {
+    const date = $('date').value || todayStr();
+    const photo = await cropToBlob();
+    await putStamp({ id: uid(), date, style: state.style, ratio: state.ratio, photo, createdAt: Date.now() });
+    toast('已存進收藏');
+    const back = pendingDate;
+    pendingDate = null;
+    updateTarget();
+    resetEditor();
+    await renderShelf();
+    if (back) openDay(date);
+  } catch (e) {
+    console.error(e);
+    toast(e.name === 'QuotaExceededError' ? '手機空間不夠，先刪掉幾張郵票再試' : '存檔失敗，再試一次');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('btnDownload').onclick = async () => {
+  const c = document.createElement('canvas');
+  renderStamp(c, { style: state.style, ratio: state.ratio, W: EXPORT_W, drawPhoto: drawCrop });
+  await saveFile(await toBlob(c, 'image/png'), `stamp-${$('date').value || todayStr()}.png`);
+};
+$('btnReset').onclick = resetEditor;
+
+document.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
+  $('addDialog').close();
+  $(b.dataset.pick === 'camera' ? 'inCamera' : 'inPick').click();
+}));
+['inCamera', 'inPick'].forEach(id => $(id).addEventListener('change', e => {
+  loadFile(e.target.files[0]);
+  e.target.value = '';
+}));
+
+// ---------- 收藏 ----------
+const imgCache = new Map();
+async function stampImage(s) {
+  if (!imgCache.has(s.id)) imgCache.set(s.id, await blobToImage(s.photo));
+  return imgCache.get(s.id);
+}
+function drawThumb(canvas, s, W) {
+  stampImage(s).then(img => renderStamp(canvas, { style: s.style, ratio: s.ratio, W, drawPhoto: fillPhoto(img) }));
+}
+function thumbButton(s, label, onclick) {
+  const b = document.createElement('button');
+  b.setAttribute('aria-label', `${prettyDate(s.date)} 的郵票`);
+  const c = document.createElement('canvas');
+  b.append(c);
+  if (label) {
+    const d = document.createElement('div');
+    d.className = 'd';
+    d.textContent = label;
+    b.append(d);
+  }
+  b.onclick = onclick;
+  drawThumb(c, s, 240);
+  return b;
+}
+
+async function renderShelf() {
+  const list = (await allStamps()).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  const grid = $('grid');
+  grid.innerHTML = '';
+  $('shelfEmpty').hidden = list.length > 0;
+  $('shelfCount').textContent = list.length ? `共 ${list.length} 張` : '';
+  for (const s of list.slice(0, 24)) grid.append(thumbButton(s, shortDate(s.date), () => openDetail(s)));
+}
+
+let current = null;
+async function openDetail(s) {
+  current = s;
+  const img = await stampImage(s);
+  renderStamp($('detailCanvas'), { style: s.style, ratio: s.ratio, W: 600, drawPhoto: fillPhoto(img) });
+  const styleName = STYLES.find(x => x.id === s.style).name;
+  const ratioName = RATIOS.find(x => x.id === s.ratio).name;
+  $('detailMeta').textContent = `${prettyDate(s.date)}・${styleName}・${ratioName}`;
+  $('detail').showModal();
+}
+$('detailClose').onclick = () => $('detail').close();
+$('detailDownload').onclick = async () => {
+  const img = await stampImage(current);
+  await saveFile(await toBlob(stampCanvas(img, current, EXPORT_W)), `stamp-${current.date}.png`);
+};
+$('detailDelete').onclick = async () => {
+  if (!confirm('確定要刪除這張郵票嗎？刪除後無法復原。')) return;
+  await deleteStamp(current.id);
+  imgCache.delete(current.id);
+  $('detail').close();
+  toast('已刪除');
+  await renderShelf();
+  if (view === 'day') renderDay();
+};
+
+// ---------- 月曆 ----------
+const cal = { y: new Date().getFullYear(), m: new Date().getMonth() };
+function monthKey(y, m) { return `${y}-${pad(m + 1)}`; }
+async function monthStamps(y, m) {
+  const key = monthKey(y, m);
+  const byDay = new Map();
+  (await allStamps())
+    .filter(s => s.date.startsWith(key))
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .forEach(s => { if (!byDay.has(s.date)) byDay.set(s.date, []); byDay.get(s.date).push(s); });
+  return byDay;
+}
+async function renderCalendar() {
+  const { y, m } = cal;
+  $('calTitle').textContent = `${y} · ${m + 1} 月`;
+  const byDay = await monthStamps(y, m);
+  const grid = $('calGrid');
+  grid.innerHTML = '';
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m + 1, 0).getDate();
+  for (let i = 0; i < first; i++) {
+    const b = document.createElement('div');
+    b.className = 'cell blank';
+    grid.append(b);
+  }
+  const today = todayStr();
+  let total = 0;
+  for (let d = 1; d <= days; d++) {
+    const date = `${monthKey(y, m)}-${pad(d)}`;
+    const list = byDay.get(date) || [];
+    total += list.length;
+    const b = document.createElement('button');
+    b.className = 'cell' + (list.length ? ' has' : '') + (date === today ? ' today' : '');
+    b.setAttribute('aria-label', `${m + 1} 月 ${d} 日，${list.length ? list.length + ' 張郵票' : '沒有郵票'}`);
+    b.innerHTML = `<span class="n">${d}</span>`;
+    if (list.length) {
+      const c = document.createElement('canvas');
+      b.append(c);
+      drawThumb(c, list[0], 120);
+      if (list.length > 1) {
+        const more = document.createElement('span');
+        more.className = 'more';
+        more.textContent = `+${list.length - 1}`;
+        b.append(more);
+      }
+    }
+    b.onclick = () => openDay(date);
+    grid.append(b);
+  }
+  $('calCount').textContent = `本月 ${total} 張郵票`;
+}
+$('calPrev').onclick = () => { cal.m--; if (cal.m < 0) { cal.m = 11; cal.y--; } renderCalendar(); };
+$('calNext').onclick = () => { cal.m++; if (cal.m > 11) { cal.m = 0; cal.y++; } renderCalendar(); };
+
+// ---------- 當日頁 ----------
+let dayDate = null;
+let dayTimer = null;
+async function openDay(date) {
+  dayDate = date;
+  const d = parseDate(date);
+  cal.y = d.getFullYear();
+  cal.m = d.getMonth();
+  const rec = await getDay(date);
+  $('dayNote').value = rec ? rec.note || '' : '';
+  $('dayPlace').value = rec ? rec.place || '' : '';
+  $('daySaved').textContent = '';
+  show('day');
+  renderDay();
+}
+async function renderDay() {
+  $('dayTitle').textContent = prettyDate(dayDate);
+  const list = await stampsOn(dayDate);
+  const grid = $('dayGrid');
+  grid.innerHTML = '';
+  list.forEach(s => grid.append(thumbButton(s, '', () => openDetail(s))));
+  const add = document.createElement('button');
+  add.className = 'add';
+  add.setAttribute('aria-label', `加一張郵票到 ${prettyDate(dayDate)}`);
+  add.innerHTML = '<svg class="i"><use href="#i-plus"/></svg>';
+  add.onclick = () => {
+    pendingDate = dayDate;
+    $('addTitle').textContent = `加照片到 ${shortDate(dayDate)}`;
+    $('addDialog').showModal();
+  };
+  grid.append(add);
+  $('dayEmpty').hidden = list.length > 0;
+}
+// 日記與地點：打字就自動存
+function scheduleDaySave() {
+  clearTimeout(dayTimer);
+  dayTimer = setTimeout(flushDay, 500);
+}
+async function flushDay() {
+  clearTimeout(dayTimer);
+  if (!dayDate) return;
+  await putDay({ date: dayDate, note: $('dayNote').value.trim(), place: $('dayPlace').value.trim() });
+  $('daySaved').textContent = '已自動儲存';
+}
+$('dayNote').addEventListener('input', scheduleDaySave);
+$('dayPlace').addEventListener('input', scheduleDaySave);
+$('dayBack').onclick = () => { show('cal'); renderCalendar(); };
+
+// ---------- 日記圖（1080×1350） ----------
+async function ensureFonts(text) {
+  if (!document.fonts) return;
+  try {
+    await Promise.all([
+      document.fonts.load(`700 40px ${FONT_ZH}`, text),
+      document.fonts.load(`400 40px ${FONT_ZH}`, text),
+      document.fonts.load(`600 40px ${FONT_EN}`, '0123456789.·'),
+    ]);
+  } catch {}
+}
+// 中文逐字換行
+function wrapLines(ctx, text, maxW, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxW && line) {
+      lines.push(line);
+      line = ch;
+      if (lines.length === maxLines) break;
+    } else {
+      line += ch;
+    }
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  return lines;
+}
+function drawShadowed(ctx, img, x, y, w, h, angle) {
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate(angle * Math.PI / 180);
+  ctx.shadowColor = 'rgba(50, 50, 50, 0.28)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+// 把郵票放進格子裡（保持比例、置中）
+function fitInto(img, cell, scale = 0.9) {
+  const s = Math.min(cell.w / img.width, cell.h / img.height) * scale;
+  const w = img.width * s, h = img.height * s;
+  return { x: cell.x + (cell.w - w) / 2, y: cell.y + (cell.h - h) / 2, w, h };
+}
+function diaryCells(n, box) {
+  const { x, y, w, h } = box;
+  const gap = 30;
+  const hw = (w - gap) / 2, hh = (h - gap) / 2;
+  if (n === 1) return [{ x, y, w, h }];
+  if (n === 2) return [{ x, y, w: hw, h }, { x: x + hw + gap, y, w: hw, h }];
+  const cells = [{ x, y, w: hw, h: hh }, { x: x + hw + gap, y, w: hw, h: hh }];
+  if (n === 3) cells.push({ x: x + (w - hw) / 2, y: y + hh + gap, w: hw, h: hh });
+  else cells.push({ x, y: y + hh + gap, w: hw, h: hh }, { x: x + hw + gap, y: y + hh + gap, w: hw, h: hh });
+  return cells;
+}
+function drawPostmark(ctx, cx, cy, r, top, bottom) {
+  ctx.save();
+  ctx.strokeStyle = C.orange;
+  ctx.fillStyle = C.orange;
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, r - 12, 0, Math.PI * 2); ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 26px ${FONT_EN}`;
+  ctx.fillText(top, cx, cy - 14);
+  ctx.font = `600 20px ${FONT_EN}`;
+  ctx.fillText(bottom, cx, cy + 18);
+  ctx.restore();
+}
+
+async function diaryImage(date, stamps) {
+  const rec = await getDay(date) || {};
+  const note = rec.note || '';
+  const place = rec.place || '';
+  await ensureFonts(note + place + WEEK + '星期');
+  const W = 1080, H = 1350, P = 80;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const d = parseDate(date);
+  ctx.fillStyle = C.text;
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `600 30px ${FONT_EN}`;
+  ctx.fillText(String(d.getFullYear()), P, 112);
+  ctx.font = `600 104px ${FONT_EN}`;
+  const md = `${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+  ctx.fillText(md, P, 222);
+  const mdW = ctx.measureText(md).width;
+  ctx.font = `700 40px ${FONT_ZH}`;
+  ctx.fillText(`星期${WEEK[d.getDay()]}`, P + mdW + 24, 218);
+  drawPostmark(ctx, W - P - 70, 160, 70, 'STAMP', 'DIARY');
+
+  const hasText = note || place;
+  const box = { x: P, y: 290, w: W - 2 * P, h: hasText ? 760 : 900 };
+  const imgs = await Promise.all(stamps.map(async s => stampCanvas(await stampImage(s), s, 900)));
+  const cells = diaryCells(imgs.length, box);
+  const angles = [-3, 2.5, 2, -2.5];
+  imgs.forEach((img, i) => {
+    const r = fitInto(img, cells[i], imgs.length === 1 ? 0.92 : 0.9);
+    drawShadowed(ctx, img, r.x, r.y, r.w, r.h, imgs.length === 1 ? -2 : angles[i]);
+  });
+
+  let ty = box.y + box.h + 70;
+  if (note) {
+    ctx.fillStyle = C.text;
+    ctx.font = `700 44px ${FONT_ZH}`;
+    wrapLines(ctx, note, W - 2 * P, 2).forEach(line => { ctx.fillText(line, P, ty); ty += 62; });
+  }
+  if (place) {
+    ctx.fillStyle = C.orange;
+    ctx.beginPath(); ctx.arc(P + 9, ty - 12, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.text2;
+    ctx.font = `400 32px ${FONT_ZH}`;
+    ctx.fillText(place, P + 32, ty);
+  }
+  ctx.fillStyle = C.text2;
+  ctx.font = `400 22px ${FONT_ZH}`;
+  ctx.textAlign = 'right';
+  ctx.fillText('郵票相機 · Made with ❤️ by 伯爵紅茶', W - P, H - 48);
+  return toBlob(c);
+}
+
+let pickSel = [];
+$('btnDayImg').onclick = async () => {
+  await flushDay();
+  const list = await stampsOn(dayDate);
+  if (!list.length) { toast('這天還沒有郵票，先按「＋」加一張'); return; }
+  if (list.length <= 4) return downloadDiary(list);
+  pickSel = list.slice(0, 4).map(s => s.id);
+  const grid = $('pickGrid');
+  grid.innerHTML = '';
+  list.forEach(s => {
+    const b = thumbButton(s, '', () => {
+      const i = pickSel.indexOf(s.id);
+      if (i >= 0) pickSel.splice(i, 1);
+      else if (pickSel.length < 4) pickSel.push(s.id);
+      else { toast('最多 4 張，先取消一張'); return; }
+      refreshPick(list);
+    });
+    b.dataset.id = s.id;
+    grid.append(b);
+  });
+  refreshPick(list);
+  $('pickDialog').showModal();
+};
+function refreshPick() {
+  $('pickGrid').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', pickSel.includes(b.dataset.id)));
+  $('pickCount').textContent = `已選 ${pickSel.length} / 4 張`;
+}
+$('pickGo').onclick = async () => {
+  if (!pickSel.length) { toast('至少選 1 張'); return; }
+  const list = await stampsOn(dayDate);
+  $('pickDialog').close();
+  downloadDiary(list.filter(s => pickSel.includes(s.id)));
+};
+async function downloadDiary(list) {
+  toast('產生日記圖中…');
+  await saveFile(await diaryImage(dayDate, list), `diary-${dayDate}.png`);
+}
+
+// ---------- 月曆圖（1080×1350） ----------
+async function monthImage(y, m) {
+  const byDay = await monthStamps(y, m);
+  await ensureFonts('月本張郵票相機伯爵紅茶' + WEEK);
+  const W = 1080, H = 1350, P = 60;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = C.text;
+  ctx.font = `600 34px ${FONT_EN}`;
+  ctx.fillText(String(y), P + 10, 112);
+  ctx.font = `600 120px ${FONT_EN}`;
+  const mm = pad(m + 1);
+  ctx.fillText(mm, P + 4, 236);
+  const mmW = ctx.measureText(mm).width;
+  ctx.font = `700 48px ${FONT_ZH}`;
+  ctx.fillText('月', P + mmW + 16, 232);
+  drawPostmark(ctx, W - P - 80, 165, 70, 'STAMP', 'DIARY');
+
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m + 1, 0).getDate();
+  const rows = Math.ceil((first + days) / 7);
+  const gap = 10;
+  const top = 340;
+  const cw = (W - 2 * P - gap * 6) / 7;
+  const ch = Math.min(cw * 1.18, (1180 - top - gap * (rows - 1)) / rows);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = C.text2;
+  ctx.font = `400 26px ${FONT_ZH}`;
+  for (let i = 0; i < 7; i++) ctx.fillText(WEEK[i], P + i * (cw + gap) + cw / 2, top - 22);
+
+  let total = 0;
+  for (let d = 1; d <= days; d++) {
+    const idx = first + d - 1;
+    const x = P + (idx % 7) * (cw + gap);
+    const yy = top + Math.floor(idx / 7) * (ch + gap);
+    const date = `${monthKey(y, m)}-${pad(d)}`;
+    const list = byDay.get(date) || [];
+    total += list.length;
+    ctx.fillStyle = PAPER;
+    roundRect(ctx, x, yy, cw, ch, 12);
+    ctx.fill();
+    ctx.textAlign = 'left';
+    ctx.fillStyle = list.length ? C.text : C.text2;
+    ctx.font = `600 22px ${FONT_EN}`;
+    ctx.fillText(String(d), x + 10, yy + 28);
+    if (list.length) {
+      const img = stampCanvas(await stampImage(list[0]), list[0], 300);
+      const r = fitInto(img, { x, y: yy + 30, w: cw, h: ch - 34 }, 0.9);
+      drawShadowed(ctx, img, r.x, r.y, r.w, r.h, 0);
+    }
+  }
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = C.blue;
+  roundRect(ctx, P, 1230, 300, 64, 12);
+  ctx.fill();
+  ctx.fillStyle = C.text;
+  ctx.font = `700 30px ${FONT_ZH}`;
+  ctx.fillText(`本月 ${total} 張郵票`, P + 24, 1273);
+  ctx.fillStyle = C.text2;
+  ctx.font = `400 22px ${FONT_ZH}`;
+  ctx.textAlign = 'right';
+  ctx.fillText('郵票相機 · Made with ❤️ by 伯爵紅茶', W - P, 1272);
+  return toBlob(c);
+}
+$('btnMonthImg').onclick = async () => {
+  toast('產生月曆圖中…');
+  await saveFile(await monthImage(cal.y, cal.m), `month-${monthKey(cal.y, cal.m)}.png`);
+};
+
+// ---------- 備份與還原 ----------
+$('btnBackup').onclick = async () => {
+  const stamps = await allStamps();
+  const days = await allDays();
+  if (!stamps.length && !days.length) { toast('還沒有東西可以備份'); return; }
+  toast('打包備份中…');
+  const data = {
+    app: 'stamp-camera',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    stamps: await Promise.all(stamps.map(async s => ({ ...s, photo: await blobToDataURL(s.photo) }))),
+    days,
+  };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  await saveFile(blob, `stamp-camera-backup-${todayStr()}.json`);
+};
+
+let restoreData = null;
+$('btnRestore').onclick = () => $('inBackup').click();
+$('inBackup').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (data.app !== 'stamp-camera' || !Array.isArray(data.stamps)) throw new Error('not a backup');
+    restoreData = data;
+    $('restoreInfo').textContent = `這個備份有 ${data.stamps.length} 張郵票（${mb(file.size)} MB），要怎麼匯入？`;
+    $('restoreDialog').showModal();
+  } catch {
+    toast('這不是郵票相機的備份檔');
+  }
+});
+async function doRestore(replace) {
+  const data = restoreData;
+  $('restoreDialog').close();
+  if (!data) return;
+  if (replace && !confirm('確定要清空現有的郵票和日記，換成備份嗎？這個動作無法復原。')) return;
+  try {
+    if (replace) { await clearAll(); imgCache.clear(); }
+    const existingDays = new Set((await allDays()).map(d => d.date));
+    for (const s of data.stamps) {
+      await putStamp({ ...s, photo: await dataURLToBlob(s.photo) });
+    }
+    for (const d of data.days || []) {
+      if (replace || !existingDays.has(d.date)) await putDay(d);
+    }
+    toast(`已匯入 ${data.stamps.length} 張郵票`);
+    restoreData = null;
+    await renderShelf();
+    await updateBackupInfo();
+    renderCalendar();
+  } catch (err) {
+    console.error(err);
+    toast(err.name === 'QuotaExceededError' ? '手機空間不夠，匯入沒有完成' : '匯入失敗，再試一次');
+  }
+}
+$('restoreMerge').onclick = () => doRestore(false);
+$('restoreReplace').onclick = () => doRestore(true);
+async function updateBackupInfo() {
+  const stamps = await allStamps();
+  const size = stamps.reduce((n, s) => n + s.photo.size, 0) * 1.37;  // 轉成文字大約多 37%
+  $('backupInfo').textContent = stamps.length
+    ? `郵票只存在這個瀏覽器裡（目前 ${stamps.length} 張，備份檔約 ${mb(size)} MB）。換手機或清除瀏覽器資料前，先下載備份檔。`
+    : '郵票只存在這個瀏覽器裡。換手機或清除瀏覽器資料前，先下載備份檔。';
+}
+
+// ---------- 起始 ----------
+function drawDemo() {
+  renderStamp($('demo'), {
+    style: 'classic', ratio: '3:4', W: 264,
+    drawPhoto: (ctx, x, y, w, h) => {
+      ctx.fillStyle = C.blue; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = C.orange;
+      ctx.beginPath(); ctx.arc(x + w * 0.7, y + h * 0.3, w * 0.14, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C.text;
+      ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w * 0.38, y + h * 0.55); ctx.lineTo(x + w * 0.62, y + h * 0.78);
+      ctx.lineTo(x + w * 0.8, y + h * 0.62); ctx.lineTo(x + w, y + h * 0.85); ctx.lineTo(x + w, y + h); ctx.fill();
+    },
+  });
+}
+
+$('date').value = todayStr();
+buildChips();
+drawDemo();
+renderShelf().catch(e => { console.error(e); toast('瀏覽器不支援儲存功能'); });
+updateBackupInfo().catch(() => {});
+window.addEventListener('resize', drawPreview);
+window.addEventListener('pagehide', () => { if (view === 'day') flushDay(); });
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+</script>
+</body>
+</html>
